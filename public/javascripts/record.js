@@ -1,3 +1,5 @@
+var audioElement = document.createElement('audio');
+
 function callback(stream) {
     var context = new AudioContext();
     var mediaStreamSource = context.createMediaStreamSource(stream);
@@ -5,6 +7,37 @@ function callback(stream) {
 
 function error(e) {
     console.log(e);
+}
+
+function searchAndPlay(text) {
+  audioElement.pause();
+  $.ajax({
+      type: 'POST',
+      url: 'http://localhost:3000/getlink',
+      data: {
+          text: text
+      },
+      success: function(song) {
+          var html = '<div class="song">';
+          html += '<span class="title">' + song.title + '</span>';
+          html += '<span>128k <a href="' + song.download_link_128 + '" target="_blank">' + song.download_link_128 + '</a></span>';
+          html += '<span class="source"><strong>' + song.source + '</strong></span>';
+          html += '</div>';
+          $('.songs').prepend(html);
+
+          audioElement.setAttribute('src', song.download_link_128);
+          audioElement.addEventListener('ended', function() {
+              this.play();
+          }, false);
+          audioElement.play();
+      },
+      beforeSend: function() {
+          $('.loading').show();
+      },
+      complete: function() {
+          $('.loading').hide();
+      }
+  });
 }
 
 $(document).ready(function() {
@@ -32,41 +65,18 @@ $(document).ready(function() {
     $('.record').on('mouseup', function() {
         console.log('STOP recording');
         socket.emit('stop');
+
+        var text = $('.inputMessage').val();
+        searchAndPlay(text);
     });
 
     $('.inputMessage').on('keydown', function(event) {
         if (event.keyCode == 13) {
+            audioElement.pause();
             var text = $(this).val();
-            $('.songs').html('');
-            // search text
-            $.ajax({
-                type: 'POST',
-                url: 'http://localhost:3000/getlink',
-                data: {
-                    text: text
-                },
-                success: function(data) {
-                    if (data.zing.length > 0) {
-                        var zingSongs = data.zing;
-                        zingSongs.forEach(function(song) {
-                            var html = '<div class="song">';
-                                html += '<span class="title">'+ song.title +'</span>';
-                                html += '<span>128k <a href="'+ song.download_link_128 +'" target="_blank">'+ song.download_link_128 +'</a></span>';
-                                html += '<span class="source"><strong>'+ song.source +'</strong></span>';
-                                html += '</div>';
-                            $('.songs').append(html);
-                        })
-                    }
-                },
-                beforeSend: function() {
-                    $('.loading').show();
-                },
-                complete: function(){
-                    $('.loading').hide();
-                }
-            });
-
             $(this).val('');
+
+            searchAndPlay(text);
         }
     })
 });
